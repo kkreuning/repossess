@@ -9,7 +9,7 @@ ThisBuild / scalacOptions ++= Seq(
   "-language:_",
   "-Ywarn-unused:_",
   // "-Xfatal-warnings",
-  "-Ymacro-annotations",
+  "-Ymacro-annotations"
 )
 ThisBuild / autoStartServer := false
 ThisBuild / includePluginResolvers := true
@@ -18,13 +18,15 @@ ThisBuild / useSuperShell := false
 ThisBuild / watchBeforeCommand := Watch.clearScreen
 ThisBuild / watchTriggeredMessage := Watch.clearScreenOnTrigger
 ThisBuild / watchForceTriggerOnAnyChange := true
-ThisBuild / shellPrompt := { state => s"${prompt(projectName(state))}> " }
+ThisBuild / shellPrompt := { state =>
+  s"${prompt(projectName(state))}> "
+}
 ThisBuild / watchStartMessage := {
   case (iteration, ProjectRef(build, projectName), commands) =>
     Some {
       s"""
-        |~${commands.map(styled).mkString(";")}
-        |Monitoring source files for ${prompt(projectName)}... (Press enter to interrupt)""".stripMargin
+         |~${commands.map(styled).mkString(";")}
+         |Monitoring source files for ${prompt(projectName)}... (Press enter to interrupt)""".stripMargin
     }
 }
 ThisBuild / resolvers += Resolver.jcenterRepo
@@ -44,11 +46,11 @@ lazy val root = project
     libraryDependencies ++= Seq(
       compilerPlugin(Dependencies.CompilerPlugins.`better-monadic-for`),
       crossPlugin(Dependencies.CompilerPlugins.`kind-projector`),
-      crossPlugin(Dependencies.CompilerPlugins.`scala-typed-holes`),
+      crossPlugin(Dependencies.CompilerPlugins.`scala-typed-holes`)
     ),
     Compile / console / scalacOptions --= Seq(
       "-Ywarn-unused:_",
-      "-Xfatal-warnings",
+      "-Xfatal-warnings"
     ),
     Compile / compileIncremental / scalacOptions := (Compile / console / scalacOptions).value,
     Test / console / scalacOptions := (Compile / console / scalacOptions).value

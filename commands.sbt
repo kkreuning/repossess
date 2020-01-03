@@ -5,14 +5,14 @@ addCommandAlias("lintDependencies", "reload; unusedCompileDependencies; undeclar
 
 onLoadMessage +=
   s"""
-    |
-    | List of common ${styled("commands")}:
-    |┌──────────────────┬────────────────────────────────────────────┐
-    |│ ${styled("run")}              │ run the application                        │
-    |│ ${styled("test")}             │ run tests                                  │
-    |├──────────────────┼────────────────────────────────────────────┤
-    |│ ${styled("update")}           │ check for dependency updates               │
-    |│ ${styled("lintDependencies")} │ check unused and undeclared dependencies   │
-    |│ ${styled("scalafmt")}         │ format sources with scalafmt               │
-    |└──────────────────┴────────────────────────────────────────────┘
+     |
+     | List of common ${styled("commands")}:
+     |┌──────────────────┬────────────────────────────────────────────┐
+     |│ ${styled("run")}              │ run the application                        │
+     |│ ${styled("test")}             │ run tests                                  │
+     |├──────────────────┼────────────────────────────────────────────┤
+     |│ ${styled("update")}           │ check for dependency updates               │
+     |│ ${styled("lintDependencies")} │ check unused and undeclared dependencies   │
+     |│ ${styled("scalafmt")}         │ format sources with scalafmt               │
+     |└──────────────────┴────────────────────────────────────────────┘
   """.stripMargin
