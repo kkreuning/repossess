@@ -10,14 +10,13 @@ object Hash {
   def apply(value: String): Hash = new Hash(value);
 }
 final case class Author(name: String, emailAddress: String)
-final case class Change(mutation: Mutation, path: Path)
-sealed trait Mutation
-object Mutation {
-  case object Add extends Mutation
-  case object Copy extends Mutation
-  case object Delete extends Mutation
-  case object Modify extends Mutation
-  case object Rename extends Mutation
+sealed trait Change { val path: Path }
+object Change {
+  final case class Add(path: Path) extends Change
+  final case class Copy(path: Path) extends Change
+  final case class Delete(path: Path) extends Change
+  final case class Modify(path: Path) extends Change
+  final case class Rename(path: Path) extends Change
 }
 final case class Commit(
     hash: Hash,
@@ -28,7 +27,7 @@ final case class Commit(
     changes: Seq[Change]
   )
 
-final case class FileAnalysis(
+final case class SourceFileAnalysis(
     language: String,
     path: Path,
     filename: String,

@@ -1,90 +1,75 @@
 package nl.lunatech.daywalker.jgit
 
-import java.nio.file.Path
-import java.nio.file.Paths
-import java.time.Instant
-import java.time.LocalDateTime
-import java.time.ZoneId
+import java.nio.file.{Path, Paths}
+import java.time.{LocalDateTime, ZoneOffset}
 import nl.lunatech.daywalker.Author
 import nl.lunatech.daywalker.Change
 import nl.lunatech.daywalker.Commit
-import nl.lunatech.daywalker.Hash
-import nl.lunatech.daywalker.Mutation
 import nl.lunatech.daywalker.RepositoryService
+import nl.lunatech.daywalker.Hash
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.diff.DiffEntry.ChangeType
-import org.eclipse.jgit.lib.Repository
 import org.eclipse.jgit.revwalk.RevWalk
 import org.eclipse.jgit.treewalk.CanonicalTreeParser
 import scala.jdk.CollectionConverters._
-import scala.util.Try
-import scala.util.Using
+import zio.{Task, UIO}
 
-final class JGitRepositoryService(val repositoryDir: Path, val branchName: String) extends RepositoryService {
-  val git: Git = Git.open(new java.io.File(repositoryDir.toUri))
-  val repository: Repository = git.getRepository()
+class JGitRepositoryService(val dir: Path, val branch: String) extends RepositoryService[Task] {
+  private val git = Git.open(dir.toFile)
+  private val repo = git.getRepository
 
-  def listCommitHashes: Seq[Hash] = _listCommitsHashes(None)
+  def listCommitHashes: Task[Seq[Hash]] = _listCommitHashes(None)
 
-  def listCommitHashes(offset: Hash): Seq[Hash] = _listCommitsHashes(Some(offset))
+  def listCommitHashes(offset: Hash): Task[Seq[Hash]] = _listCommitHashes(Some(offset))
 
-  private def _listCommitsHashes(maybeOffset: Option[Hash]) = {
-    val branch = repository.resolve(branchName)
-    val call =
-      maybeOffset.fold(git.log.add(branch))(offset => git.log.addRange(repository.resolve(offset.value), branch))
-    val commits = call.call().asScala.toList.reverse
-    commits.map(commit => Hash(commit.getId.getName))
+  private def _listCommitHashes(offsetOption: Option[Hash]): Task[Seq[Hash]] = {
+    for {
+      br <- Task(repo.resolve(branch))
+      log <- Task(offsetOption.fold(git.log.add(br))(offset => git.log.addRange(repo.resolve(offset.value), br)))
+      commits <- Task(log.call().asScala)
+      names = commits.map(_.getId.getName).toSeq.reverse
+    } yield names.map(Hash(_))
   }
 
-  def parseCommit(commit: Hash): Option[Commit] = {
-    Try {
-      Using.resource(new RevWalk(repository)) { walk =>
-        val revCommit = walk.parseCommit(repository.resolve(commit.value))
-        val currentHash = Hash(revCommit.getId.getName)
-        val parentHash = Option.when(revCommit.getParentCount > 0)(revCommit.getParent(0).getName).map(Hash(_))
+  def readCommit(commit: Hash): Task[Option[Commit]] = {
+    def acquire = Task(new RevWalk(repo))
+    def release(walk: RevWalk) = UIO(walk.close())
+    def use(walk: RevWalk): Task[Option[Commit]] = {
+      for {
+        commit <- Task(walk.parseCommit(repo.resolve(commit.value)))
+        currentHash = Hash(commit.getId.getName)
+        parentHash = Option.when(commit.getParentCount > 0)(commit.getParent(0).getName).map(Hash(_))
+        date = LocalDateTime.ofEpochSecond(commit.getCommitTime * 1000L, 0, ZoneOffset.UTC)
+        author = commit.getAuthorIdent
+        message = commit.getShortMessage
+        changes <- parentHash.fold[Task[Seq[Change]]](UIO.succeed(Nil))(ph => diffCommits(ph, currentHash))
+      } yield Commit(currentHash, parentHash, date, Author(author.getName, author.getEmailAddress), message, changes)
+    }.option
 
-        Commit(
-          hash = currentHash,
-          parentHash = parentHash,
-          date = LocalDateTime.ofInstant(Instant.ofEpochMilli(revCommit.getCommitTime * 1000), ZoneId.systemDefault),
-          author = Author(
-            name = revCommit.getAuthorIdent.getName,
-            emailAddress = revCommit.getAuthorIdent.getEmailAddress
-          ),
-          message = revCommit.getShortMessage,
-          changes = parentHash.fold[Seq[Change]](Nil)(parentHash => diffCommits(parentHash, currentHash))
-        )
-      }
-    }.toOption
+    Task.bracket(acquire, release, use)
   }
 
-  def diffCommits(oldHash: Hash, newHash: Hash): Seq[Change] = {
-    Try {
-      val reader = repository.newObjectReader()
-      val oldTree = new CanonicalTreeParser(null, reader, repository.resolve(s"${oldHash.value}^{tree}"))
-      val newTree = new CanonicalTreeParser(null, reader, repository.resolve(s"${newHash.value}^{tree}"))
-      val entries = git.diff().setOldTree(oldTree).setNewTree(newTree).call().asScala
-      entries
-    }.toOption
-      .fold[Seq[Change]] {
-        Nil
-      } { entries =>
-        entries.map { entry =>
-          Change(
-            mutation = entry.getChangeType match {
-              case ChangeType.ADD    => Mutation.Add
-              case ChangeType.COPY   => Mutation.Copy
-              case ChangeType.DELETE => Mutation.Delete
-              case ChangeType.MODIFY => Mutation.Modify
-              case ChangeType.RENAME => Mutation.Rename
-            },
-            path = Paths.get(entry.getNewPath)
-          )
-        }.toSeq
-      }
-  }
-
-  def checkout(commit: Hash): Unit = {
-    git.checkout().setStartPoint(commit.value).call()
+  def diffCommits(oldHash: Hash, newHash: Hash): Task[Seq[Change]] = {
+    for {
+      reader <- Task(repo.newObjectReader)
+      oldRevStr <- Task(repo.resolve(s"${oldHash.value}^{tree}"))
+      oldTree <- Task(new CanonicalTreeParser(null, reader, oldRevStr))
+      newRevStr <- Task(repo.resolve(s"${newHash.value}^{tree}"))
+      newTree <- Task(new CanonicalTreeParser(null, reader, newRevStr))
+      diff = git.diff.setOldTree(oldTree).setNewTree(newTree)
+      entries <- Task(diff.call().asScala)
+      changes <- Task.collectAll(entries.map { entry =>
+        for {
+          path <- Task(Paths.get(entry.getNewPath))
+          change <- UIO(entry.getChangeType match {
+            case ChangeType.ADD    => Change.Add(path)
+            case ChangeType.COPY   => Change.Copy(path)
+            case ChangeType.DELETE => Change.Delete(path)
+            case ChangeType.MODIFY => Change.Modify(path)
+            case ChangeType.RENAME => Change.Rename(path)
+          })
+        } yield change
+      })
+    } yield changes
   }
 }

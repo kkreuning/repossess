@@ -2,17 +2,15 @@ package nl.lunatech.daywalker
 
 import java.nio.file.Path
 
-trait RepositoryService {
-  val repositoryDir: Path
-  val branchName: String
+trait RepositoryService[F[_]] {
+  val dir: Path
+  val branch: String
 
-  def listCommitHashes: Seq[Hash]
+  def listCommitHashes: F[Seq[Hash]]
 
-  def listCommitHashes(offset: Hash): Seq[Hash]
+  def listCommitHashes(offset: Hash): F[Seq[Hash]]
 
-  def parseCommit(commit: Hash): Option[Commit]
+  def readCommit(commit: Hash): F[Option[Commit]]
 
-  def diffCommits(oldHash: Hash, newHash: Hash): Seq[Change]
-
-  def checkout(commit: Hash): Unit
+  def diffCommits(oldHash: Hash, newHash: Hash): F[Seq[Change]]
 }
