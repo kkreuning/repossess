@@ -21,15 +21,15 @@ object Dependencies {
     "org.typelevel"              %% "cats-effect"         % "2.0.0",
     "org.typelevel"              %% "cats-laws"           % "2.1.0",
     "org.typelevel"              %% "cats-mtl-core"       % "0.7.0",
-    "org.typelevel"              %% "cats-tagless-macros" % "0.10"
+    "org.typelevel"              %% "cats-tagless-macros" % "0.10",
   )
 
   val Test = Seq(
-    "com.tngtech.archunit" % "archunit "               % "0.12.0",
+    "com.tngtech.archunit" % "archunit"                % "0.12.0",
     "org.scalacheck"       %% "scalacheck"             % "1.14.2",
     "org.scalatest"        %% "scalatest"              % "3.1.0",
     "org.typelevel"        %% "cats-effect-laws"       % "2.0.0",
-    "org.typelevel"        %% "cats-testkit-scalatest" % "1.0.0-RC1"
+    "org.typelevel"        %% "cats-testkit-scalatest" % "1.0.0-RC1",
   ).map(_ % sbt.Test)
 
   object CompilerPlugins {
