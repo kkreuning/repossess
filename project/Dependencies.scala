@@ -7,8 +7,10 @@ object Dependencies {
     "com.github.pureconfig"      %% "pureconfig-core"     % "0.12.1",
     "com.github.pureconfig"      %% "pureconfig-generic"  % "0.12.1",
     "com.github.tototoshi"       %% "scala-csv"           % "1.3.6",
+    "com.h2database"             % "h2"                   % "1.4.200",
     "com.typesafe.scala-logging" %% "scala-logging"       % "3.9.2",
     "dev.zio"                    %% "zio"                 % "1.0.0-RC17",
+    "dev.zio"                    %% "zio-interop-cats"    % "2.0.0.0-RC10",
     "eu.timepit"                 %% "refined"             % "0.9.10",
     "eu.timepit"                 %% "refined-pureconfig"  % "0.9.10",
     "io.chrisdavenport"          %% "log4cats-noop"       % "1.0.1",
@@ -16,12 +18,14 @@ object Dependencies {
     "io.github.jmcardon"         %% "tsec-hash-jca"       % "0.2.0-M1",
     "org.apache.kafka"           % "kafka-clients"        % "2.0.0",
     "org.eclipse.jgit"           % "org.eclipse.jgit"     % "5.6.0.201912101111-r",
-    "org.typelevel"              %% "cats-core"           % "2.0.0",
+    "org.tpolecat"               %% "doobie-core"         % "0.8.8",
+    "org.tpolecat"               %% "doobie-hikari"       % "0.8.8",
     "org.typelevel"              %% "cats-core"           % "2.1.0",
     "org.typelevel"              %% "cats-effect"         % "2.0.0",
     "org.typelevel"              %% "cats-laws"           % "2.1.0",
     "org.typelevel"              %% "cats-mtl-core"       % "0.7.0",
     "org.typelevel"              %% "cats-tagless-macros" % "0.10",
+    "org.xerial"                 % "sqlite-jdbc"          % "3.30.1",
   )
 
   val Test = Seq(

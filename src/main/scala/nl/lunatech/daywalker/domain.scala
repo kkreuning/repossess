@@ -1,38 +1,52 @@
 package nl.lunatech.daywalker
 
-import java.time.LocalDateTime
 import java.nio.file.Path
+import java.time.LocalDateTime
 
-final class Hash(val value: String) extends AnyVal {
-  override def toString: String = value
-}
-object Hash {
-  def apply(value: String): Hash = new Hash(value);
-}
-final case class Author(name: String, emailAddress: String)
-sealed trait Change { val path: Path }
-object Change {
-  final case class Add(path: Path) extends Change
-  final case class Copy(path: Path) extends Change
-  final case class Delete(path: Path) extends Change
-  final case class Modify(path: Path) extends Change
-  final case class Rename(path: Path) extends Change
-}
-final case class Commit(
-    hash: Hash,
-    parentHash: Option[Hash],
-    date: LocalDateTime,
-    author: Author,
-    message: String,
-    changes: Seq[Change]
-  )
+final case class CliArgs(database: String, repository: Path, branch: String, reset: Boolean, verbose: Boolean)
 
-final case class SourceFileAnalysis(
+final case class DatabaseConfig(url: String, user: String, pass: String)
+
+sealed trait Scope
+object Scope {
+  case object Main extends Scope
+  case object Test extends Scope
+}
+
+final case class FileSnapshot(
     language: String,
     path: Path,
-    filename: String,
-    lines: Int,
-    blanks: Int,
-    comments: Int,
-    code: Int
+    fileName: String,
+    namespace: Option[String],
+    scope: Scope,
+    linesAdded: Int,
+    linesRemoved: Int,
+    allLines: Int,
+    codeLines: Int,
+    commentLines: Int,
+    blankLines: Int,
+    complexity: Int,
+    changed: Boolean,
+)
+
+final case class DirectorySnapshot(
+    totalFiles: Int,
+    totalLines: Int,
+    totalCodeLines: Int,
+    totalCommentLines: Int,
+    totalBlankLines: Int
   )
+
+final case class Author(name: String, emailAddress: String)
+
+final case class Commit(
+    hash: String,
+    parent: Option[String],
+    date: LocalDateTime,
+    tag: Option[String],
+    author: Author,
+    message: String,
+    averageComplexity: Float = 0f
+  )
+
+final case class FileChange(path: Path, linesAdded: Int, linesDeleted: Int)
