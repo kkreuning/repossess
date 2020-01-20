@@ -27,6 +27,7 @@ class JGitRepository(directory: Path) extends GitRepository[Task] {
 
   private val jgit = JGit.open(directory.toFile) // TODO: Make managed resource
   private val repo = Task(jgit.getRepository)
+  private val mailMap = MailMap(directory)
 
   val getCurrentHash: Task[Hash] = repo.map(_.getFullBranch)
 
@@ -60,7 +61,7 @@ class JGitRepository(directory: Path) extends GitRepository[Task] {
           Option.when(revCommit.getParentCount > 0)(revCommit.getParent(0).getName()),
           LocalDateTime.ofEpochSecond(revCommit.getCommitTime, 0, java.time.ZoneOffset.UTC),
           tag,
-          Author(revCommit.getAuthorIdent.getName, revCommit.getAuthorIdent.getEmailAddress),
+          mailMap.canonicalize(Author(revCommit.getAuthorIdent.getName, revCommit.getAuthorIdent.getEmailAddress)),
           revCommit.getShortMessage
         )
 
