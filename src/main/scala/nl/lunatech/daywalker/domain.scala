@@ -20,7 +20,7 @@ final case class FileSnapshot(
     namespace: Option[String],
     scope: Scope,
     linesAdded: Int,
-    linesRemoved: Int,
+    linesDeleted: Int,
     allLines: Int,
     codeLines: Int,
     commentLines: Int,
@@ -49,4 +49,12 @@ final case class Commit(
     averageComplexity: Float = 0f
   )
 
-final case class FileChange(path: Path, linesAdded: Int, linesDeleted: Int)
+sealed trait FileChangeType
+object FileChangeType {
+  case object Add extends FileChangeType
+  case object Delete extends FileChangeType
+  case object Modify extends FileChangeType
+  case object Copy extends FileChangeType
+  case object Rename extends FileChangeType
+}
+final case class FileChange(path: Path, `type`: FileChangeType, linesAdded: Int, linesDeleted: Int)

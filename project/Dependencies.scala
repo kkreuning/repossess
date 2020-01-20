@@ -18,6 +18,7 @@ object Dependencies {
     "io.github.jmcardon"         %% "tsec-hash-jca"       % "0.2.0-M1",
     "org.apache.kafka"           % "kafka-clients"        % "2.0.0",
     "org.eclipse.jgit"           % "org.eclipse.jgit"     % "5.6.0.201912101111-r",
+    "org.flywaydb"               % "flyway-core"          % "6.1.4",
     "org.tpolecat"               %% "doobie-core"         % "0.8.8",
     "org.tpolecat"               %% "doobie-hikari"       % "0.8.8",
     "org.typelevel"              %% "cats-core"           % "2.1.0",
