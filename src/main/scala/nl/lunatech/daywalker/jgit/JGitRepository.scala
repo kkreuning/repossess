@@ -6,11 +6,17 @@ import java.time.LocalDateTime
 import nl.lunatech.daywalker.Author
 import nl.lunatech.daywalker.Commit
 import nl.lunatech.daywalker.FileChange
+import nl.lunatech.daywalker.FileChangeType
 import nl.lunatech.daywalker.GitRepository
 import org.eclipse.jgit.api.{Git => JGit}
+import org.eclipse.jgit.diff.DiffEntry.ChangeType
 import org.eclipse.jgit.diff.DiffFormatter
+import org.eclipse.jgit.lib.ObjectReader
+import org.eclipse.jgit.lib.Repository
 import org.eclipse.jgit.revwalk.RevWalk
+import org.eclipse.jgit.treewalk.AbstractTreeIterator
 import org.eclipse.jgit.treewalk.CanonicalTreeParser
+import org.eclipse.jgit.treewalk.EmptyTreeIterator
 import org.eclipse.jgit.util.io.NullOutputStream
 import scala.jdk.CollectionConverters._
 import zio.Task
@@ -67,34 +73,52 @@ class JGitRepository(directory: Path) extends GitRepository[Task] {
     Task.bracket(acquire, release, use)
   }
 
-  def listChangedFiles(oldHash: String, newHash: String): Task[Set[FileChange]] = {
+  def listChangedFiles(newHash: String, maybeOldHash: Option[String]): Task[Set[FileChange]] = {
+    def treeIteratorForCommit(maybeHash: Option[String], reader: ObjectReader) =
+      maybeHash
+        .fold[Task[AbstractTreeIterator]] {
+          Task.succeed(new EmptyTreeIterator())
+        } { hash =>
+          for {
+            rev <- repo.map(_.resolve(s"$hash^{tree}"))
+            tree <- Task(new CanonicalTreeParser(null, reader, rev))
+          } yield tree
+        }
+
+    def mkFormatter(repo: Repository): DiffFormatter = {
+      val df = new DiffFormatter(NullOutputStream.INSTANCE)
+      df.setRepository(repo)
+      df
+    }
+
     for {
       reader <- repo.map(_.newObjectReader)
-      oldRevStr <- repo.map(_.resolve(s"$oldHash^{tree}"))
-      oldTree <- Task(new CanonicalTreeParser(null, reader, oldRevStr))
-      newRevStr <- repo.map(_.resolve(s"$newHash^{tree}"))
-      newTree <- Task(new CanonicalTreeParser(null, reader, newRevStr))
-      out = NullOutputStream.INSTANCE
-      formatter <- repo.map { r =>
-        val df = new DiffFormatter(out); df.setRepository(r); df
-      }
-      diff = jgit.diff.setOldTree(oldTree).setNewTree(newTree)
+      oldTreeIterator <- treeIteratorForCommit(maybeOldHash, reader)
+      newTreeIterator <- treeIteratorForCommit(Some(newHash), reader)
+      formatter <- repo.map(mkFormatter)
+      // entries <- Task(formatter.scan(oldTreeIterator, newTreeIterator).asScala)
+      diff = jgit.diff.setOldTree(oldTreeIterator).setNewTree(newTreeIterator)
       entries <- Task(diff.call.asScala)
-      changedFiles <- Task(entries.collect {
-        case entry if entry.getNewPath() != "/dev/null" => // TODO: Better src detection
-          formatter.setContext(0)
-          val editList = formatter.toFileHeader(entry).toEditList()
-
-          val (added, deleted) = editList.asScala.foldLeft((0, 0)) {
-            case ((a, d), edit) =>
-              (
-                a + (edit.getEndA - edit.getBeginA),
-                d + (edit.getEndB - edit.getBeginB)
-              )
+      changedFiles = entries.collect {
+        case entry =>
+          val path = if (entry.getNewPath != "/dev/null") entry.getNewPath else entry.getOldPath
+          val changeType = entry.getChangeType match {
+            case ChangeType.ADD    => FileChangeType.Add
+            case ChangeType.COPY   => FileChangeType.Copy
+            case ChangeType.DELETE => FileChangeType.Delete
+            case ChangeType.MODIFY => FileChangeType.Modify
+            case ChangeType.RENAME => FileChangeType.Rename
           }
 
-          FileChange(Paths.get(entry.getNewPath), added, deleted)
-      })
+          formatter.setContext(0)
+          val edits = formatter.toFileHeader(entry).toEditList
+          val (added, deleted) = edits.asScala.foldLeft((0, 0)) {
+            case ((a, d), edit) =>
+              (a + (edit.getEndB - edit.getBeginB), d + (edit.getEndA - edit.getBeginA))
+          }
+
+          FileChange(Paths.get(path), changeType, added, deleted)
+      }
     } yield changedFiles.toSet
   }
 }

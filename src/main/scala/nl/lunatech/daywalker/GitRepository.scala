@@ -9,5 +9,5 @@ trait GitRepository[F[_]] {
 
   def getCommits(hashes: Seq[String]): F[Vector[Commit]]
 
-  def listChangedFiles(oldHash: String, newHash: String): F[Set[FileChange]]
+  def listChangedFiles(newHash: String, maybeOldHash: Option[String]): F[Set[FileChange]]
 }
