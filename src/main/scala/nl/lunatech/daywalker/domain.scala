@@ -3,7 +3,14 @@ package nl.lunatech.daywalker
 import java.nio.file.Path
 import java.time.LocalDateTime
 
-final case class CliArgs(database: String, repository: Path, branch: String, reset: Boolean, verbose: Boolean)
+final case class CliArgs(
+    database: String,
+    repository: Path,
+    branch: Option[String],
+    reset: Boolean,
+    verbose: Boolean,
+    help: Boolean
+  )
 
 final case class DatabaseConfig(url: String, user: String, pass: String)
 
