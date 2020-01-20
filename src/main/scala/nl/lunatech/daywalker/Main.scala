@@ -1,99 +1,113 @@
 package nl.lunatech.daywalker
 
-import java.nio.file.Path
+import java.nio.file.Files
 import java.nio.file.Paths
 import nl.lunatech.daywalker.jgit.JGitRepository
 import nl.lunatech.daywalker.scc.SccSnapshotter
 import nl.lunatech.daywalker.sqlite.SqliteDatabase
 import nl.lunatech.daywalker.sqlite.mkTransactor
+import nl.lunatech.daywalker.sqlite.{initialize => initializeDatabase}
 import scala.concurrent.ExecutionContext
+import scala.util.Try
+import zio.Cause
 import zio.Task
-import zio.UIO
 
 object Main {
-  def main(args: Array[String]): Unit = { // TODO: Turn into ZIO application
+  def main(args: Array[String]): Unit = {
+    val program =
+      for {
+        cwd <- Task(Paths.get("").toAbsolutePath)
+        cliArgsParser = new CliArgsParser {}
+        cliArgs <- Task.fromEither(cliArgsParser.parse(args.toList, cwd))
 
-    // TODO: Moar logging
+        // TODO: Logger based on cliArgs.verbose
 
-    val prgm = for {
-      _ <- Task.unit
-      args <- Task.fromEither(parseArgs(args.toList))
-      // args = CliArgs("pnssv.db", Paths.get("/Users/kay/Development/ING/profilenotificationsyncsv"), "refs/heads/development", reset = false, verbose = false)
-      // args = CliArgs("pnssv2.db", Paths.get("/Users/kay/Development/ING/profilenotificationsyncsv"), "refs/heads/development", reset = true, verbose = false)
-      // args = CliArgs("onepam.db", Paths.get("/Users/kay/Development/ING/onepam-api-suite"), "refs/heads/develop", true)
+        // Show help and exit?
+        _ <- if (cliArgs.help) Task(println(cliArgsParser.helpMessage)) *> Task.halt(Cause.empty) else Task.unit
 
-      // TODO: Create logger based on args.verbose flag
-      dbConfig = DatabaseConfig(s"jdbc:sqlite:${args.database}", "", "")
-      transactorR = mkTransactor(dbConfig, ExecutionContext.global, ExecutionContext.global) // TODO: Use better fitted execution contexts, preferable the ones provided by ZIO
-      _ <- transactorR.use { xa =>
-        for {
-          repo <- Task(new JGitRepository(args.repository))
-          snapper <- Task(new SccSnapshotter(l => l == "Scala" || l == "Java"))
-          db <- UIO(new SqliteDatabase(xa))
-
-          _ <- if (args.reset) db.reset else Task.unit
-
-          commits <- findNewCommits(repo, db)(args.branch)
-
-          _ = println(s"Found ${commits.size} new commits")
-
-          _ <- persistCommits(db)(commits)
-
-          _ <- Task.collectAll(commits.zipWithIndex.map {
-            case (commit, idx) =>
-              for {
-                _ <- Task.unit
-                _ = println(s"$idx / ${commits.size} :: ${commit.hash} - ${commit.message}")
-                snapshots <- takeSnapshots(repo, snapper)(commit, args.repository)
-                _ <- persistFileSnapshots(db)(commit.hash, snapshots)
-              } yield ()
-          })
-        } yield ()
-      }
-    } yield () // FIXME: Yield proper exit code
-
-    unsafeRun(prgm)
-  }
-
-  private def findNewCommits(repo: GitRepository[Task], db: Database[Task])(branch: String) =
-    for {
-      knownHashes <- db.listHashes // Find commit hashes that are already processed
-      allHashes <- repo.listHashes(branch) // Find commit hashes in the given branch
-      newHashes = allHashes diff knownHashes // Find unprocessed hashes
-      commits <- repo.getCommits(newHashes) // Find commits to process
-    } yield commits
-
-  private def persistCommits(db: Database[Task])(commits: Seq[Commit]) =
-    Task.collectAll(commits.map(db.persistCommit))
-
-  private def takeSnapshots(repo: GitRepository[Task], snapper: SnapShotter[Task])(commit: Commit, directory: Path) =
-    for {
-      _ <- repo.checkout(commit.hash)
-      changedFiles <- getChangedFiles(repo)(commit)
-      fileSnapshots <- snapper.takeFileSnapshots(directory)
-    } yield fileSnapshots.map {
-      case fs =>
-        fs.copy(
-          linesAdded = changedFiles.find(_.path == fs.path).map(_.linesAdded).getOrElse(0),
-          linesRemoved = changedFiles.find(_.path == fs.path).map(_.linesDeleted).getOrElse(0),
-          changed = changedFiles.exists(_.path == fs.path)
+        // Reset database by deleting the file
+        // TODO: Truncate database using db.reset instead of deleting db file
+        _ <- Task.when(cliArgs.reset)(
+          Task(println(s"Deleting database file ${cliArgs.database}")) *>
+            Task(Try(Files.delete(Paths.get(cliArgs.database))))
         )
-    }
 
-  private def getChangedFiles(repo: GitRepository[Task])(commit: Commit) =
-    commit
-      .parent
-      .fold[Task[Set[FileChange]]] {
-        Task.succeed(Set.empty)
-      } { parent =>
-        repo.listChangedFiles(commit.hash, parent)
-      }
+        repo <- Task(new JGitRepository(cliArgs.repository))
+        snapper <- Task(new SccSnapshotter(_ => true))
 
-  private def persistFileSnapshots(db: Database[Task])(hash: String, fileSnapshots: Set[FileSnapshot]) =
-    db.persistFileSnapshots(hash, fileSnapshots)
+        currentHash <- repo.getCurrentHash
+
+        // determine target branch, either cli provided or current hash
+        branch = cliArgs.branch.getOrElse(currentHash)
+
+        allHashes <- repo.listHashes(branch)
+
+        databaseConfig = DatabaseConfig(s"jdbc:sqlite:${cliArgs.database}", "", "")
+        ec = ExecutionContext.global
+        transactor = mkTransactor(databaseConfig, ec, ec) // TODO: Use ZIO provided execution contexts instead of global
+
+        _ <- transactor.use { xa =>
+          for {
+            // apply migrations
+            _ <- initializeDatabase(xa)
+
+            db <- Task(new SqliteDatabase(xa))
+
+            knownHashes <- db.listHashes
+
+            // only commits that we didn't process already
+            newHashes = allHashes diff knownHashes
+            commits <- repo.getCommits(newHashes)
+
+            // persist commits
+            _ <- Task.foreach(commits)(db.persistCommit)
+
+            // file changes per commit
+            changedFilesPerCommit <- Task
+              .foreach(commits) { commit =>
+                repo.listChangedFiles(commit.hash, commit.parent).map(fcs => (commit.hash -> fcs))
+              }
+              .map(_.toMap)
+
+            // snapshots per commit
+            _ <- Task.foreach(commits.zipWithIndex) {
+              case (commit, idx) =>
+                for {
+                  _ <- Task(println(s"$idx / ${commits.size} :: ${commit.hash} - ${commit.message}"))
+
+                  // checkout repo at specific commit
+                  _ <- repo.checkout(commit.hash)
+                  snapshots0 <- snapper.takeFileSnapshots(cliArgs.repository)
+                  maybeChangedFiles = changedFilesPerCommit.get(commit.hash)
+                  // # FIXME: Snapshot augmentation should happen in the snapper instead of here
+                  snapshots = snapshots0.map { snapshot =>
+                    snapshot.copy(
+                      linesAdded =
+                        maybeChangedFiles.fold(0)(_.find(_.path == snapshot.path).map(_.linesAdded).getOrElse(0)),
+                      linesDeleted =
+                        maybeChangedFiles.fold(0)(_.find(_.path == snapshot.path).map(_.linesDeleted).getOrElse(0)),
+                      changed = maybeChangedFiles.fold(false)(_.exists(_.path == snapshot.path))
+                    )
+                  }
+
+                  _ <- db.persistFileSnapshots(commit.hash, snapshots)
+                } yield ()
+            }
+            // _ = println(branch)
+            // _ = print(newHashes)
+          } yield ()
+        }
+
+        // be kind, rewind
+        _ <- repo.checkout(currentHash)
+      } yield ()
+
+    unsafeRun(program)
+  }
 
   private val rt =
     zio.Runtime((), zio.internal.PlatformLive.fromExecutionContext(scala.concurrent.ExecutionContext.global))
+
   private def unsafeRun[E, A](io: zio.IO[E, A]): A = {
     rt.unsafeRunSync(io) match {
       case zio.Exit.Success(v)                      => v
@@ -101,26 +115,5 @@ object Main {
       case zio.Exit.Failure(zio.Cause.Interrupt(_)) => throw new InterruptedException
       case zio.Exit.Failure(cause)                  => throw zio.FiberFailure(cause)
     }
-  }
-
-  def parseArgs(args: List[String]): Either[Throwable, CliArgs] = {
-    @scala.annotation.tailrec
-    def recur(args: List[String], cliArgs: CliArgs): Either[Throwable, CliArgs] = {
-      args match {
-        case ("--database" | "-db") :: database :: tail => recur(tail, cliArgs.copy(database = database))
-        case ("--repository" | "-repo") :: repository :: tail =>
-          recur(tail, cliArgs.copy(repository = Paths.get(repository)))
-        case ("--branch" | "-br") :: branch :: tail => recur(tail, cliArgs.copy(branch = branch))
-        case ("--reset") :: tail                    => recur(tail, cliArgs.copy(reset = true))
-        case ("--verbose") :: tail                  => recur(tail, cliArgs.copy(verbose = true))
-        case other :: _                             => Left(new IllegalArgumentException(s"Unknown argument $other"))
-        case Nil =>
-          if (cliArgs.repository == null) Left(new IllegalArgumentException("Missing --repository argument"))
-          else if (cliArgs.branch == null) Left(new IllegalArgumentException("Missing --branch argument"))
-          else Right(cliArgs)
-      }
-    }
-
-    recur(args, CliArgs("database.db", null, null, false, false))
   }
 }
