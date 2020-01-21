@@ -64,10 +64,10 @@ class SqliteDatabase(xa: Transactor[Task]) extends Database[Task] {
         VALUES (?, ?, ?, ?, ?);
       """
       ).updateMany(
-          snapshots.map { s =>
-            (s.path.toString, s.language, s.fileName, s.namespace.getOrElse("NULL"), s.scope.toString)
-          }.toList
-        )
+        snapshots.map { s =>
+          (s.path.toString, s.language, s.fileName, s.namespace.getOrElse("NULL"), s.scope)
+        }.toList
+      )
 
     def insertSnapshots(hash: String, snapshots: Set[FileSnapshot]) =
       Update[(String, String, Int, Int, Int, Int, Int, Int, Int, Boolean)](
@@ -76,21 +76,21 @@ class SqliteDatabase(xa: Transactor[Task]) extends Database[Task] {
           VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """
       ).updateMany(
-          snapshots.map { s =>
-            (
-              hash,
-              s.path.toString,
-              s.linesAdded,
-              s.linesDeleted,
-              s.codeLines,
-              s.commentLines,
-              s.blankLines,
-              s.allLines,
-              s.complexity,
-              s.changed
-            )
-          }.toList
-        )
+        snapshots.map { s =>
+          (
+            hash,
+            s.path.toString,
+            s.linesAdded,
+            s.linesDeleted,
+            s.codeLines,
+            s.commentLines,
+            s.blankLines,
+            s.allLines,
+            s.complexity,
+            s.changed
+          )
+        }.toList
+      )
 
     for {
       _ <- insertFiles(snapshots).transact(xa)

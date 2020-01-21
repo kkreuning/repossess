@@ -14,18 +14,12 @@ final case class CliArgs(
 
 final case class DatabaseConfig(url: String, user: String, pass: String)
 
-sealed trait Scope
-object Scope {
-  case object Main extends Scope
-  case object Test extends Scope
-}
-
 final case class FileSnapshot(
     language: String,
     path: Path,
     fileName: String,
     namespace: Option[String],
-    scope: Scope,
+    scope: String,
     linesAdded: Int,
     linesDeleted: Int,
     allLines: Int,
