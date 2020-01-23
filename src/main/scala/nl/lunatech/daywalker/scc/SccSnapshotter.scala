@@ -9,7 +9,6 @@ import nl.lunatech.daywalker.SnapShotter
 import scala.io.Source
 import sys.process._
 import zio.Task
-import scala.util.Try
 
 class SccSnapshotter(languageFilter: String => Boolean = _ => true) extends SnapShotter[Task] {
   def takeDirectorySnapshot(directory: Path): Task[DirectorySnapshot] = {
