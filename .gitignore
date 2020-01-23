@@ -1,18 +1,54 @@
-
-# Created by https://www.gitignore.io/api/scala,bloop,metals
-# Edit at https://www.gitignore.io/?templates=scala,bloop,metals
+# Created by https://www.gitignore.io/api/sbt,scala,bloop,metals,jupyternotebooks,visualstudiocode
+# Edit at https://www.gitignore.io/?templates=sbt,scala,bloop,metals,jupyternotebooks,visualstudiocode
 
 ### Bloop ###
 .bloop/
 
+### JupyterNotebooks ###
+# gitignore template for Jupyter Notebooks
+# website: http://jupyter.org/
+
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+
+# IPython
+profile_default/
+ipython_config.py
+
+# Remove previous ipynb_checkpoints
+#   git rm -r .ipynb_checkpoints/
+
 ### Metals ###
 .metals/
+
+### SBT ###
+# Simple Build Tool
+# http://www.scala-sbt.org/release/docs/Getting-Started/Directories.html#configuring-version-control
+
+dist/*
+target/
+lib_managed/
+src_managed/
+project/**/target
+project/boot/
+project/plugins/project/
+.history
+.cache
+.lib/
 
 ### Scala ###
 *.class
 *.log
 *.metals
-project/**/target
-/target
 
-# End of https://www.gitignore.io/api/scala,bloop,metals
+### VisualStudioCode ###
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+### VisualStudioCode Patch ###
+# Ignore all local history of files
+
+# End of https://www.gitignore.io/api/sbt,scala,bloop,metals,jupyternotebooks,visualstudiocode
