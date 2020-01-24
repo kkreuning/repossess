@@ -1,39 +1,41 @@
 -- authors views
-CREATE VIEW authors_n_commits
+CREATE VIEW authors_contributions
 AS
   SELECT
-    a.name AS author_name,
-    COUNT(c.hash) AS n_commits
+    n_commits.author_name,
+    n_commits.n_commits,
+    changes.n_lines_added,
+    changes.n_lines_deleted,
+    changes.n_lines_changed
   FROM
-    authors a,
-    commits c
-  WHERE
-    a.name = c.author_name
-  GROUP BY
-    a.name
-  ORDER BY
-    n_commits DESC
-;
--- TODO: Merge authors_n_commits into authors_contributions view
-CREATE VIEW authors_contibutions
-AS
-  SELECT
-      a.name AS author_name,
-      SUM(s.lines_added) AS n_lines_added,
-      SUM(s.lines_deleted) AS n_lines_deleted,
-      SUM(s.lines_added + s.lines_deleted) AS n_lines_changed
-  FROM
-      authors a,
-      commits c,
-      snapshots s
-  WHERE
-      a.name = c.author_name AND
-      s.commit_hash = c.hash AND
-      s.changed = TRUE
-  GROUP BY
-    a.name
-  ORDER BY
-    a.name
+	  (SELECT
+		  a.name AS author_name,
+	    COUNT(c.hash) AS n_commits
+	  FROM
+	    authors a,
+	    commits c
+	  WHERE
+	    a.name = c.author_name
+	  GROUP BY
+	    a.name
+	) AS n_commits,
+	(SELECT
+		a.name AS author_name,
+		SUM(s.lines_added) AS n_lines_added,
+     	SUM(s.lines_deleted) AS n_lines_deleted,
+     	SUM(s.lines_added + s.lines_deleted) AS n_lines_changed
+  	FROM
+     	authors a,
+     	commits c,
+     	snapshots s
+  	WHERE
+     	a.name = c.author_name AND
+     	s.commit_hash = c.hash AND
+     	s.changed = TRUE
+  	GROUP BY
+    a.name) AS changes
+WHERE
+	n_commits.author_name = changes.author_name
 ;
 
 
@@ -56,7 +58,6 @@ AS
 -- TODO: Deduplicate
 ;
 
--- files ownership
 CREATE VIEW files_ownership
 AS
   SELECT
