@@ -56,50 +56,80 @@ AS
 -- TODO: Deduplicate
 ;
 
-
-CREATE VIEW files_n_authors
-AS
-  SELECT s.file_path, COUNT(DISTINCT(c.author_name)) AS n_authors
-  FROM
-    commits c,
-    snapshots s
-  WHERE
-    c.hash = s.commit_hash AND
-    s.changed = TRUE
-  GROUP BY
-    s.file_path
-  ORDER BY
-    n_authors DESC;
--- TODO: Merge files_n_authors and files_principal_authors into one files_ownership
-CREATE VIEW files_principal_authors
+-- files ownership
+CREATE VIEW files_ownership
 AS
   SELECT
-    file_path,
-    author_name AS principal_author,
-    n_commits
-  FROM (
-    SELECT
-      f."path" AS file_path,
-      c.author_name,
-      COUNT(c.author_name) AS n_commits,
-      ROW_NUMBER() OVER (PARTITION BY f."path" ORDER BY COUNT(c.author_name) DESC) AS "rank"
-    FROM
-      files f,
-      snapshots s,
-      commits c
-    WHERE
-      f."path" = s.file_path AND
-      s.commit_hash = c.hash AND
-      s.changed = TRUE
-    GROUP BY
-      c.author_name,
-      f."path"
-    ORDER BY
-      f."path",
-      "rank",
-      c.author_name
-  )
-  WHERE "rank" = 1
+	ranked.file_path,
+	n_changes.n_changes,
+	n_authors.n_authors,
+	ranked.primary_author,
+	ranked.primary_author_n_commits,
+	cast(ranked.primary_author_n_commits AS REAL) / cast(n_changes.n_changes AS REAL) AS primary_author_contribution,
+	ranked.secondary_author,
+	COALESCE(ranked.secondary_author_n_commits, 0) AS secondary_author_n_commits,
+	COALESCE(cast(ranked.secondary_author_n_commits AS REAL) / cast(n_changes.n_changes AS REAL), 0) AS secondary_author_contribution,
+	ranked.tertiary_author,
+	COALESCE(ranked.tertiary_author_n_commits, 0) AS tertiary_author_n_commits,
+	COALESCE(cast(ranked.tertiary_author_n_commits AS REAL) / cast(n_changes.n_changes AS REAL), 0) AS tertiary_author_contribution,
+	COALESCE(n_changes.n_changes - (ranked.primary_author_n_commits + ranked.secondary_author_n_commits + ranked.tertiary_author_n_commits), 0) AS other_authors_n_commits,
+	COALESCE(cast(n_changes.n_changes - (ranked.primary_author_n_commits + ranked.secondary_author_n_commits + ranked.tertiary_author_n_commits) AS REAL) /  cast(n_changes.n_changes AS REAL), 0) AS other_authors_contribution
+FROM
+	(SELECT
+		ranked.file_path,
+		MAX(ranked.author_name) FILTER (WHERE ranked."rank" = 1) AS primary_author,
+		SUM(ranked.n_commits) FILTER (WHERE ranked."rank" = 1) AS primary_author_n_commits,
+		MAX(ranked.author_name) FILTER (WHERE ranked."rank" = 2) AS secondary_author,
+		SUM(ranked.n_commits) FILTER (WHERE ranked."rank" = 2) AS secondary_author_n_commits,
+		MAX(ranked.author_name) FILTER (WHERE ranked."rank" = 3) AS tertiary_author,
+		SUM(ranked.n_commits) FILTER (WHERE ranked."rank" = 3) AS tertiary_author_n_commits
+	FROM
+		(SELECT
+			f."path" AS file_path,
+		    c.author_name,
+		    COUNT(c.author_name) AS n_commits,
+		    ROW_NUMBER() OVER (PARTITION BY f."path" ORDER BY COUNT(c.author_name) DESC) AS "rank"
+		FROM
+			files f,
+		    snapshots s,
+		    commits c
+		WHERE
+			f."path" = s.file_path AND
+		    s.commit_hash = c.hash AND
+		    s.changed = TRUE
+		GROUP BY
+			c.author_name,
+		    f."path"
+		ORDER BY
+			f."path",
+		    "rank",
+		    c.author_name
+		) AS ranked
+	GROUP BY ranked.file_path) AS ranked,
+	(SELECT s.file_path, COUNT(DISTINCT(c.author_name)) AS n_authors
+  	FROM
+	    commits c,
+    	snapshots s
+	WHERE
+    	c.hash = s.commit_hash AND
+    	s.changed = TRUE
+  	GROUP BY
+    	s.file_path
+  	ORDER BY
+    	n_authors DESC
+	) AS n_authors,
+	(SELECT
+		f."path" AS file_path,
+		COUNT(s.file_path) AS n_changes
+	FROM
+		files f JOIN snapshots s ON f.path = s.file_path
+	WHERE
+		s.changed = TRUE
+	GROUP BY
+		f."path") AS n_changes
+WHERE
+	n_authors.file_path = ranked.file_path AND
+	ranked.file_path = n_changes.file_path
 ;
 
 
@@ -132,7 +162,7 @@ AS
     c.date
 ;
 
-
+-- commits churn
 CREATE VIEW commits_churn
 AS
 	SELECT
