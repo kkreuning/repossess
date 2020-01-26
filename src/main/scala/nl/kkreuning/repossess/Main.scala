@@ -1,12 +1,12 @@
-package nl.lunatech.daywalker
+package nl.kkreuning.repossess
 
 import java.nio.file.Files
 import java.nio.file.Paths
-import nl.lunatech.daywalker.jgit.JGitRepository
-import nl.lunatech.daywalker.scc.SccSnapshotter
-import nl.lunatech.daywalker.sqlite.SqliteDatabase
-import nl.lunatech.daywalker.sqlite.mkTransactor
-import nl.lunatech.daywalker.sqlite.{initialize => initializeDatabase}
+import nl.kkreuning.repossess.jgit.JGitRepository
+import nl.kkreuning.repossess.scc.SccSnapshotter
+import nl.kkreuning.repossess.sqlite.SqliteDatabase
+import nl.kkreuning.repossess.sqlite.mkTransactor
+import nl.kkreuning.repossess.sqlite.{initialize => initializeDatabase}
 import scala.concurrent.ExecutionContext
 import scala.util.Try
 import zio.Cause

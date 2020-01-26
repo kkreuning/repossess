@@ -1,4 +1,4 @@
-package nl.lunatech.daywalker
+package nl.kkreuning.repossess
 
 trait GitRepository[F[_]] {
   def getCurrentHash: F[String]

@@ -1,13 +1,13 @@
-package nl.lunatech.daywalker.jgit
+package nl.kkreuning.repossess.jgit
 
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.time.LocalDateTime
-import nl.lunatech.daywalker.Author
-import nl.lunatech.daywalker.Commit
-import nl.lunatech.daywalker.FileChange
-import nl.lunatech.daywalker.FileChangeType
-import nl.lunatech.daywalker.GitRepository
+import nl.kkreuning.repossess.Author
+import nl.kkreuning.repossess.Commit
+import nl.kkreuning.repossess.FileChange
+import nl.kkreuning.repossess.FileChangeType
+import nl.kkreuning.repossess.GitRepository
 import org.eclipse.jgit.api.{Git => JGit}
 import org.eclipse.jgit.diff.DiffEntry.ChangeType
 import org.eclipse.jgit.diff.DiffFormatter

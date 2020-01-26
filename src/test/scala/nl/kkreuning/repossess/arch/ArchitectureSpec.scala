@@ -1,15 +1,15 @@
-package nl.lunatech.daywalker.arch
+package nl.kkreuning.repossess.arch
 
 import com.tngtech.archunit.core.importer.ClassFileImporter
 import com.tngtech.archunit.core.importer.ImportOption
 import com.tngtech.archunit.core.importer.Location
 import com.tngtech.archunit.library.Architectures
-import nl.lunatech.daywalker.Main
+import nl.kkreuning.repossess.Main
 import org.scalatest.flatspec.AnyFlatSpec
 import scala.jdk.CollectionConverters._
 
 class ArchitectureSpec extends AnyFlatSpec {
-  private val root = "nl.lunatech.daywalker"
+  private val root = "nl.kkreuning.repossess"
   private val classesWithoutMain = new ClassFileImporter()
     .withImportOption(ExcludeTests)
     .withImportOption(ExcludeClass(Main.getClass))

@@ -1,11 +1,11 @@
-package nl.lunatech.daywalker.scc
+package nl.kkreuning.repossess.scc
 
 import com.github.tototoshi.csv.CSVReader
 import java.nio.file.Path
 import java.nio.file.Paths
-import nl.lunatech.daywalker.DirectorySnapshot
-import nl.lunatech.daywalker.FileSnapshot
-import nl.lunatech.daywalker.SnapShotter
+import nl.kkreuning.repossess.DirectorySnapshot
+import nl.kkreuning.repossess.FileSnapshot
+import nl.kkreuning.repossess.SnapShotter
 import scala.io.Source
 import sys.process._
 import zio.Task

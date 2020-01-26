@@ -1,4 +1,4 @@
-package nl.lunatech.daywalker
+package nl.kkreuning.repossess
 
 import cats.effect.Blocker
 import doobie.hikari.HikariTransactor

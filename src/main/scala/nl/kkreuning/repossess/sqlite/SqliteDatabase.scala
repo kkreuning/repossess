@@ -1,14 +1,14 @@
-package nl.lunatech.daywalker.sqlite
+package nl.kkreuning.repossess.sqlite
 
 import cats.implicits._
 import doobie._
 import doobie.implicits._
 import doobie.util.transactor.Transactor
 import java.time.format.DateTimeFormatter
-import nl.lunatech.daywalker.Author
-import nl.lunatech.daywalker.Commit
-import nl.lunatech.daywalker.Database
-import nl.lunatech.daywalker.FileSnapshot
+import nl.kkreuning.repossess.Author
+import nl.kkreuning.repossess.Commit
+import nl.kkreuning.repossess.Database
+import nl.kkreuning.repossess.FileSnapshot
 import zio.Task
 import zio.interop.catz._
 

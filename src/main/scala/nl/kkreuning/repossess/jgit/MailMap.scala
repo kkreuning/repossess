@@ -1,8 +1,8 @@
-package nl.lunatech.daywalker.jgit
+package nl.kkreuning.repossess.jgit
 
 import java.nio.file.Files
 import java.nio.file.Path
-import nl.lunatech.daywalker.Author
+import nl.kkreuning.repossess.Author
 import scala.collection.mutable
 import scala.io.Source
 

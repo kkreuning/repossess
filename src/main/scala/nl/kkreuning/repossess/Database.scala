@@ -1,4 +1,4 @@
-package nl.lunatech.daywalker
+package nl.kkreuning.repossess
 
 trait Database[F[_]] {
   def reset: F[Unit]
