@@ -1,6 +1,6 @@
 import Util._
 
-ThisBuild / organization := "Daywalker"
+ThisBuild / organization := "Repossess"
 ThisBuild / scalaVersion := "2.13.1"
 ThisBuild / version := "0.0.1"
 ThisBuild / scalacOptions ++= Seq(
@@ -40,7 +40,7 @@ Global / onChangedBuildSource := ReloadOnSourceChanges
 lazy val root = project
   .in(file("."))
   .settings(
-    name := "daywalker",
+    name := "Repossess",
     libraryDependencies ++= Dependencies.Compile,
     libraryDependencies ++= Dependencies.Test,
     libraryDependencies ++= Seq(

@@ -15,7 +15,7 @@ trait CliArgsParser {
   }
 
   val helpMessage: String = """
-                              |Usage: daywalker [options]
+                              |Usage: repossess [options]
                               |
                               |  -db | --database <name>     database to store results in (default to database.db)
                               |  -repo | --repository <path> repository location (defauls to current directory)
