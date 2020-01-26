@@ -1,4 +1,4 @@
-# Daywalker
+# Repossess
 
 Code analysis time machine.
 
@@ -6,7 +6,6 @@ Code analysis time machine.
 setup requirements:
   - scala 2.13
   - sbt
-
 
 for the notebook:
 
