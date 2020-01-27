@@ -6,6 +6,7 @@ Code analysis time machine.
 setup requirements:
   - scala 2.13
   - sbt
+  - [scc](https://github.com/boyter/scc)
 
 for the notebook:
 
