@@ -25,7 +25,7 @@ class SqliteDatabase(xa: Transactor[Task]) extends Database[Task] {
   def listHashes: Task[Vector[Hash]] =
     sql"SELECT hash FROM commits".query[String].to[Vector].transact(xa)
 
-  def persistCommit(commit: Commit): Task[Unit] = {
+  def persistCommit(commit: Commit, repoName: String): Task[Unit] = {
     def insertAuthor(author: Author) =
       sql"""
         INSERT OR IGNORE INTO authors(name, email_address)
@@ -42,7 +42,7 @@ class SqliteDatabase(xa: Transactor[Task]) extends Database[Task] {
         VALUES (
           ${commit.hash},
           ${commit.parent.getOrElse("NULL")},
-          "primary",
+          $repoName,
           ${commit.date.format(DateTimeFormatter.ISO_DATE_TIME)},
           ${commit.tag.getOrElse("NULL")},
           ${commit.message},

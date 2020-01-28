@@ -5,7 +5,7 @@ trait Database[F[_]] {
 
   def listHashes: F[Vector[String]]
 
-  def persistCommit(commit: Commit): F[Unit]
+  def persistCommit(commit: Commit, repoName: String): F[Unit]
 
   def persistFileSnapshots(hash: String, fileSnapshots: Set[FileSnapshot]): F[Unit]
 }

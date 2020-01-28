@@ -3,51 +3,95 @@ package nl.kkreuning.repossess
 import scala.annotation.tailrec
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.nio.file.Files
 
 trait CliArgsParser {
-  def parse(args: List[String], cwd: Path): Either[Throwable, CliArgs] = {
-    val defaultCliArgs = CliArgs("database.db", cwd, None, reset = false, verbose = false, help = false)
-
-    if (args.isEmpty)
-      Right(defaultCliArgs.copy(help = true))
-    else
-      parseNext(args, defaultCliArgs)
-  }
-
   val helpMessage: String = """
-                              |Usage: repossess [options]
+                              |Usage: repossess [options] [flags] <repository>
                               |
-                              |  -db | --database <name>     database to store results in (default to database.db)
-                              |  -repo | --repository <path> repository location (defauls to current directory)
-                              |  -br | --branch <name>       branch to analyse (defaults to HEAD)
-                              |  --reset                     clean the database first
-                              |  --verbose                   print more messages
-                              |  --help                      show this help message
-  """.stripMargin
+                              |Options:
+                              |  -n,  --name <name>      name of the repository (default: repository directory name)
+                              |  -br, --branch <branch>  branch to analyse (default: HEAD)
+                              |  -db, --database <path>  database to store results (default: <name>.db)
+                              |
+                              |Flags:
+                              |      --reset     reset the database first
+                              |      --verbose   print more messages
+                              |  -v, --version   show version and quit
+                              |  -h, --help      show this help message and quit""".stripMargin
 
+  def parse(args: List[String], cwd: Path): Either[Throwable, CliArgs] = {
+    val default = PartialCliArgs(cwd, None, None, None, false, false, false, false)
+    parseNextArg(args, default)
+      .map { partial =>
+        val repository = partial.repository
+        val repoName = partial.maybeRepoName.getOrElse(partial.repository.getFileName.toString)
+        val branch = partial.maybeBranch
+        val database = partial.maybeDatabase.map(n => if (n.endsWith(".db")) n else s"$n.db").getOrElse(s"$repoName.db")
+
+        CliArgs(
+          repository,
+          repoName,
+          branch,
+          database,
+          resetDatabase = partial.resetDatabase,
+          isVerbose = partial.isVerbose,
+          showVersion = partial.showVersion,
+          showHelp = partial.showVersion
+        )
+      }
+  }
   @tailrec
-  private def parseNext(args: List[String], cliArgs: CliArgs): Either[Throwable, CliArgs] =
+  private def parseNextArg(args: List[String], partial: PartialCliArgs): Either[Throwable, PartialCliArgs] =
     args match {
-      // params
-      case ("-db" | "--database") :: db :: tail =>
-        parseNext(tail, cliArgs.copy(database = db))
-      case ("-repo" | "--repository") :: repo :: tail =>
-        parseNext(tail, cliArgs.copy(repository = Paths.get(repo)))
-      case ("-br" | "--branch") :: br :: tail =>
-        parseNext(tail, cliArgs.copy(branch = Some(br)))
+      case Nil =>
+        Right(partial)
+
+      // options
+      case ("-n" | "--name") :: name :: rest =>
+        parseNextArg(rest, partial.copy(maybeRepoName = Some(name)))
+      case ("-br" | "--branch") :: branch :: rest =>
+        parseNextArg(rest, partial.copy(maybeBranch = Some(branch)))
+      case ("-db" | "--database") :: database :: rest =>
+        parseNextArg(rest, partial.copy(maybeDatabase = Some(database)))
 
       // flags
-      case "--reset" :: tail =>
-        parseNext(tail, cliArgs.copy(reset = true))
-      case "--verbose" :: tail =>
-        parseNext(tail, cliArgs.copy(verbose = true))
-      case "--help" :: tail =>
-        parseNext(tail, cliArgs.copy(help = true))
+      case "--reset" :: rest =>
+        parseNextArg(rest, partial.copy(resetDatabase = true))
+      case "--verbose" :: rest =>
+        parseNextArg(rest, partial.copy(isVerbose = true))
+      case ("-v" | "--version") :: rest =>
+        parseNextArg(rest, partial.copy(showVersion = true))
+      case ("-h" | "--help") :: rest =>
+        parseNextArg(rest, partial.copy(showHelp = true))
 
-      case other :: _ =>
-        Left(new IllegalArgumentException(s"Unknown argument $other"))
+      // unknown
+      case unknown :: _ if unknown.startsWith("-") =>
+        Left(new IllegalArgumentException(s"Unknown option $unknown"))
 
-      case Nil =>
-        Right(cliArgs)
+      // default
+      case repository :: rest => {
+        import Files.{exists, isDirectory}
+
+        val dir = Paths.get(repository)
+        val git = dir.resolve(".git")
+
+        if (exists(dir) && isDirectory(dir) && exists(git) && isDirectory(git)) {
+          parseNextArg(rest, partial.copy(dir))
+        } else {
+          Left(new IllegalArgumentException(s"Repository $repository is not a valid Git repository"))
+        }
+      }
     }
+
+  final private case class PartialCliArgs(
+      repository: Path,
+      maybeRepoName: Option[String],
+      maybeBranch: Option[String],
+      maybeDatabase: Option[String],
+      resetDatabase: Boolean,
+      isVerbose: Boolean,
+      showVersion: Boolean,
+      showHelp: Boolean,
+  )
 }

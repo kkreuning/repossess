@@ -4,12 +4,14 @@ import java.nio.file.Path
 import java.time.LocalDateTime
 
 final case class CliArgs(
-    database: String,
     repository: Path,
+    repoName: String,
     branch: Option[String],
-    reset: Boolean,
-    verbose: Boolean,
-    help: Boolean
+    database: String,
+    resetDatabase: Boolean,
+    isVerbose: Boolean,
+    showVersion: Boolean,
+    showHelp: Boolean
   )
 
 final case class DatabaseConfig(url: String, user: String, pass: String)

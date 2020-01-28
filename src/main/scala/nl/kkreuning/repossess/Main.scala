@@ -23,11 +23,14 @@ object Main {
         // TODO: Logger based on cliArgs.verbose
 
         // Show help and exit?
-        _ <- if (cliArgs.help) Task(println(cliArgsParser.helpMessage)) *> Task.halt(Cause.empty) else Task.unit
+        _ <- if (cliArgs.showHelp) Task(println(cliArgsParser.helpMessage)) *> Task.halt(Cause.empty) else Task.unit
+
+        // Show version and exit?
+        _ <- if (cliArgs.showVersion) Task(println("0.0.1")) *> Task.halt(Cause.empty) else Task.unit
 
         // Reset database by deleting the file
         // TODO: Truncate database using db.reset instead of deleting db file
-        _ <- Task.when(cliArgs.reset)(
+        _ <- Task.when(cliArgs.resetDatabase)(
           Task(println(s"Deleting database file ${cliArgs.database}")) *>
             Task(Try(Files.delete(Paths.get(cliArgs.database))))
         )
@@ -59,8 +62,10 @@ object Main {
             newHashes = allHashes diff knownHashes
             commits <- repo.getCommits(newHashes)
 
+            // TODO: Stash any changes
+
             // persist commits
-            _ <- Task.foreach(commits)(db.persistCommit)
+            _ <- Task.foreach(commits)(commit => db.persistCommit(commit, cliArgs.repoName))
 
             // file changes per commit
             changedFilesPerCommit <- Task
@@ -79,7 +84,7 @@ object Main {
                   _ <- repo.checkout(commit.hash)
                   snapshots0 <- snapper.takeFileSnapshots(cliArgs.repository)
                   maybeChangedFiles = changedFilesPerCommit.get(commit.hash)
-                  // # FIXME: Snapshot augmentation should happen in the snapper instead of here
+                  // FIXME: Snapshot augmentation should happen in the snapper instead of here
                   snapshots = snapshots0.map { snapshot =>
                     snapshot.copy(
                       linesAdded =
@@ -100,6 +105,8 @@ object Main {
 
         // be kind, rewind
         _ <- repo.checkout(currentHash)
+
+        // TODO: Pop stashed changes
       } yield ()
 
     unsafeRun(program)
